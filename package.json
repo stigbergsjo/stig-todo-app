@@ -2,8 +2,9 @@
   "name": "minato-workspace",
   "version": "1.0.0",
   "description": "Welcome to your remote development workspace. Your files live on a persistent volume — they survive pauses and restarts.",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
