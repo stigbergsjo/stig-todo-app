@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>To-Do</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --text: #1f2430;
+    --muted: #8a8f9c;
+    --accent: #5b6cf9;
+    --accent-hover: #4a59e0;
+    --border: #e6e8ec;
+    --done: #b9bdc7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 48px 16px;
+    min-height: 100vh;
+  }
+  .app {
+    width: 100%;
+    max-width: 480px;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 24px;
+    text-align: center;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04);
+    padding: 20px;
+  }
+  form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  button {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--accent-hover); }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  li:last-child { border-bottom: none; }
+  .checkbox {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .checkbox.checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .checkbox.checked::after {
+    content: "✓";
+    color: white;
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .title {
+    flex: 1;
+    font-size: 15px;
+    word-break: break-word;
+  }
+  .title.done {
+    color: var(--done);
+    text-decoration: line-through;
+  }
+  .delete {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    border-radius: 6px;
+  }
+  .delete:hover {
+    color: #e0524d;
+    background: #fdeceb;
+  }
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 24px 0;
+    font-size: 14px;
+  }
+  input[type="date"] {
+    padding: 12px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="date"]:focus {
+    border-color: var(--accent);
+  }
+  .item-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .due {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .due.overdue {
+    color: #e0524d;
+    font-weight: 600;
+  }
+  #confetti-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 999;
+  }
+</style>
+</head>
+<body>
+  <canvas id="confetti-canvas"></canvas>
+  <div class="app">
+    <h1>To-Do</h1>
+    <p style="text-align:center; margin: -12px 0 20px;">
+      <a href="/sales-by-region.html" style="font-size:13px; color:var(--accent); text-decoration:none;">Se omsetning per region →</a>
+    </p>
+    <div class="card">
+      <form id="add-form">
+        <input type="text" id="new-task" placeholder="Add a task..." autocomplete="off" />
+        <input type="date" id="new-due-date" />
+        <button type="submit">Add</button>
+      </form>
+      <ul id="task-list"></ul>
+      <div id="empty-state" class="empty" style="display:none;">No tasks yet — add one above.</div>
+    </div>
+  </div>
+
+<script>
+const listEl = document.getElementById('task-list');
+const emptyEl = document.getElementById('empty-state');
+const formEl = document.getElementById('add-form');
+const inputEl = document.getElementById('new-task');
+const dueDateEl = document.getElementById('new-due-date');
+
+function formatDueDate(dateStr) {
+  const d = new Date(dateStr.slice(0, 10) + 'T00:00:00');
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function isOverdue(dateStr) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dateStr.slice(0, 10) + 'T00:00:00');
+  return due < today;
+}
+
+async function fetchTasks() {
+  const res = await fetch('/api/tasks');
+  const tasks = await res.json();
+  render(tasks);
+}
+
+function render(tasks) {
+  listEl.innerHTML = '';
+  emptyEl.style.display = tasks.length ? 'none' : 'block';
+  for (const task of tasks) {
+    const li = document.createElement('li');
+
+    const checkbox = document.createElement('div');
+    checkbox.className = 'checkbox' + (task.done ? ' checked' : '');
+    checkbox.onclick = (e) => {
+      const goingDone = !task.done;
+      if (goingDone) burstConfetti(e.clientX, e.clientY);
+      toggleTask(task.id, goingDone);
+    };
+
+    const main = document.createElement('div');
+    main.className = 'item-main';
+
+    const title = document.createElement('div');
+    title.className = 'title' + (task.done ? ' done' : '');
+    title.textContent = task.title;
+    main.appendChild(title);
+
+    if (task.due_date) {
+      const due = document.createElement('div');
+      const overdue = !task.done && isOverdue(task.due_date);
+      due.className = 'due' + (overdue ? ' overdue' : '');
+      due.textContent = (overdue ? 'Overdue: ' : 'Due ') + formatDueDate(task.due_date);
+      main.appendChild(due);
+    }
+
+    const del = document.createElement('button');
+    del.className = 'delete';
+    del.textContent = '✕';
+    del.onclick = () => deleteTask(task.id);
+
+    li.appendChild(checkbox);
+    li.appendChild(main);
+    li.appendChild(del);
+    listEl.appendChild(li);
+  }
+}
+
+async function addTask(title, dueDate) {
+  await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, due_date: dueDate || null }),
+  });
+  fetchTasks();
+}
+
+async function toggleTask(id, done) {
+  await fetch('/api/tasks/' + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ done }),
+  });
+  fetchTasks();
+}
+
+async function deleteTask(id) {
+  await fetch('/api/tasks/' + id, { method: 'DELETE' });
+  fetchTasks();
+}
+
+formEl.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const title = inputEl.value.trim();
+  if (!title) return;
+  const dueDate = dueDateEl.value;
+  inputEl.value = '';
+  dueDateEl.value = '';
+  addTask(title, dueDate);
+});
+
+// --- confetti ---
+const confettiCanvas = document.getElementById('confetti-canvas');
+const ctx = confettiCanvas.getContext('2d');
+const confettiColors = ['#5b6cf9', '#ec4899', '#a855f7', '#3fd68f', '#ffb020'];
+let confettiParticles = [];
+let confettiRunning = false;
+
+function resizeCanvas() {
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function burstConfetti(x, y) {
+  const originX = x || window.innerWidth / 2;
+  const originY = y || window.innerHeight / 2;
+  for (let i = 0; i < 60; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 6;
+    confettiParticles.push({
+      x: originX,
+      y: originY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 3,
+      size: 4 + Math.random() * 4,
+      color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 20,
+      life: 0,
+      maxLife: 60 + Math.random() * 30,
+    });
+  }
+  if (!confettiRunning) {
+    confettiRunning = true;
+    requestAnimationFrame(animateConfetti);
+  }
+}
+
+function animateConfetti() {
+  ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiParticles = confettiParticles.filter((p) => p.life < p.maxLife);
+  for (const p of confettiParticles) {
+    p.vy += 0.15;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.rotation += p.rotationSpeed;
+    p.life += 1;
+    const alpha = 1 - p.life / p.maxLife;
+    ctx.save();
+    ctx.globalAlpha = Math.max(alpha, 0);
+    ctx.translate(p.x, p.y);
+    ctx.rotate((p.rotation * Math.PI) / 180);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+    ctx.restore();
+  }
+  if (confettiParticles.length > 0) {
+    requestAnimationFrame(animateConfetti);
+  } else {
+    confettiRunning = false;
+  }
+}
+
+fetchTasks();
+</script>
+</body>
+</html>

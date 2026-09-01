@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omsetning per region</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:            #f9f9f7;
+    --surface-1:       #fcfcfb;
+    --text-primary:    #0b0b0b;
+    --text-secondary:  #52514e;
+    --text-muted:      #898781;
+    --gridline:        #e1e0d9;
+    --baseline:        #c3c2b7;
+    --border:          rgba(11,11,11,0.10);
+    --series-1:        #2a78d6;
+    --series-1-hover:  #1c5cab;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:            #0d0d0d;
+    --surface-1:       #1a1a19;
+    --text-primary:    #ffffff;
+    --text-secondary:  #c3c2b7;
+    --text-muted:      #898781;
+    --gridline:        #2c2c2a;
+    --baseline:        #383835;
+    --border:          rgba(255,255,255,0.10);
+    --series-1:        #3987e5;
+    --series-1-hover:  #5598e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page:            #0d0d0d;
+      --surface-1:       #1a1a19;
+      --text-primary:    #ffffff;
+      --text-secondary:  #c3c2b7;
+      --text-muted:      #898781;
+      --gridline:        #2c2c2a;
+      --baseline:        #383835;
+      --border:          rgba(255,255,255,0.10);
+      --series-1:        #3987e5;
+      --series-1-hover:  #5598e7;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 48px 16px;
+    min-height: 100vh;
+  }
+  .wrap {
+    width: 100%;
+    max-width: 760px;
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 20px;
+  }
+  .icon-btn {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .icon-btn:hover { color: var(--text-primary); }
+  .card {
+    background: var(--surface-1);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04);
+    padding: 24px 24px 8px;
+  }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .toggle-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .toggle-btn:hover { color: var(--text-primary); border-color: var(--baseline); }
+  svg text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .bar-hit { cursor: pointer; }
+  .bar-fill { transition: fill 0.1s; }
+  .bar-hit:hover .bar-fill, .bar-hit:focus .bar-fill { fill: var(--series-1-hover); }
+  .bar-hit:focus { outline: none; }
+  .cat-label { fill: var(--text-primary); font-size: 13px; font-weight: 500; }
+  .val-label { fill: var(--text-secondary); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .axis-label { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    font-size: 13px;
+    color: var(--text-secondary);
+    opacity: 0;
+    transition: opacity 0.1s;
+    z-index: 10;
+    min-width: 160px;
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip .t-region {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    font-size: 14px;
+  }
+  #tooltip .t-value {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  #tooltip .t-sub {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 4px 0 16px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  th {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  td.num, th.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  td.region { color: var(--text-primary); font-weight: 500; }
+  .hidden { display: none; }
+  .foot-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Omsetning per region</h1>
+        <p class="subtitle">Totalsalg (NOK) for Q3, rangert høyest til lavest</p>
+      </div>
+      <button class="icon-btn" id="theme-toggle" title="Bytt lys/mørk modus" aria-label="Bytt lys/mørk modus">◐</button>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Region</span>
+        <button class="toggle-btn" id="view-toggle">Vis som tabell</button>
+      </div>
+      <div id="chart-view"></div>
+      <div id="table-view" class="hidden"></div>
+      <div class="foot-note" id="foot-note"></div>
+    </div>
+  </div>
+  <div id="tooltip"></div>
+
+<script>
+const root = document.documentElement;
+const themeToggle = document.getElementById('theme-toggle');
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme) root.setAttribute('data-theme', savedTheme);
+themeToggle.addEventListener('click', () => {
+  const current = root.getAttribute('data-theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+
+function cssVar(name) {
+  return getComputedStyle(root).getPropertyValue(name).trim();
+}
+
+function formatNok(v) {
+  return 'kr ' + Math.round(v).toLocaleString('nb-NO');
+}
+
+function niceStep(maxVal) {
+  const rough = maxVal / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  let step;
+  if (norm < 1.5) step = 1;
+  else if (norm < 3) step = 2;
+  else if (norm < 7) step = 5;
+  else step = 10;
+  return step * mag;
+}
+
+function roundedRightRectPath(x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  return `M${x},${y} H${x + w - rr} Q${x + w},${y} ${x + w},${y + rr} V${y + h - rr} Q${x + w},${y + h} ${x + w - rr},${y + h} H${x} Z`;
+}
+
+const tooltip = document.getElementById('tooltip');
+
+function showTooltip(evt, d) {
+  tooltip.innerHTML = '';
+  const region = document.createElement('div');
+  region.className = 't-region';
+  region.textContent = d.region;
+  const value = document.createElement('div');
+  value.className = 't-value';
+  value.textContent = formatNok(d.total_nok);
+  const sub = document.createElement('div');
+  sub.className = 't-sub';
+  sub.textContent = d.orders.toLocaleString('nb-NO') + ' ordre';
+  tooltip.appendChild(region);
+  tooltip.appendChild(value);
+  tooltip.appendChild(sub);
+  tooltip.classList.add('visible');
+  moveTooltip(evt);
+}
+
+function moveTooltip(evt) {
+  const x = evt.clientX ?? (evt.target.getBoundingClientRect().right + 8);
+  const y = evt.clientY ?? evt.target.getBoundingClientRect().top;
+  tooltip.style.left = (x + 16) + 'px';
+  tooltip.style.top = (y - 10) + 'px';
+}
+
+function hideTooltip() {
+  tooltip.classList.remove('visible');
+}
+
+function renderChart(data) {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const marginLeft = 96;
+  const marginRight = 130;
+  const marginTop = 8;
+  const marginBottom = 28;
+  const barHeight = 24;
+  const rowGap = 20;
+  const rowHeight = barHeight + rowGap;
+  const chartWidth = 720;
+  const plotWidth = chartWidth - marginLeft - marginRight;
+  const plotHeight = data.length * rowHeight;
+  const totalHeight = marginTop + plotHeight + marginBottom;
+
+  const maxVal = Math.max(...data.map((d) => d.total_nok));
+  const step = niceStep(maxVal);
+  const axisMax = Math.ceil(maxVal / step) * step;
+  const scale = (v) => (v / axisMax) * plotWidth;
+
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${chartWidth} ${totalHeight}`);
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', totalHeight);
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Stolpediagram over omsetning per region');
+
+  // gridlines + axis ticks
+  const tickCount = axisMax / step;
+  for (let i = 0; i <= tickCount; i++) {
+    const val = i * step;
+    const x = marginLeft + scale(val);
+    const line = document.createElementNS(svgNS, 'line');
+    line.setAttribute('x1', x);
+    line.setAttribute('x2', x);
+    line.setAttribute('y1', marginTop);
+    line.setAttribute('y2', marginTop + plotHeight);
+    line.setAttribute('class', 'gridline');
+    svg.appendChild(line);
+
+    const label = document.createElementNS(svgNS, 'text');
+    label.setAttribute('x', x);
+    label.setAttribute('y', marginTop + plotHeight + 18);
+    label.setAttribute('class', 'axis-label');
+    label.setAttribute('text-anchor', 'middle');
+    label.textContent = (val / 1e6).toLocaleString('nb-NO', { maximumFractionDigits: 1 }) + ' M';
+    svg.appendChild(label);
+  }
+
+  // baseline
+  const baseline = document.createElementNS(svgNS, 'line');
+  baseline.setAttribute('x1', marginLeft);
+  baseline.setAttribute('x2', marginLeft);
+  baseline.setAttribute('y1', marginTop);
+  baseline.setAttribute('y2', marginTop + plotHeight);
+  baseline.setAttribute('class', 'baseline');
+  svg.appendChild(baseline);
+
+  data.forEach((d, i) => {
+    const rowY = marginTop + i * rowHeight;
+    const barY = rowY + (rowGap - 8) / 2 + 4;
+    const barW = Math.max(scale(d.total_nok), 2);
+
+    const g = document.createElementNS(svgNS, 'g');
+    g.setAttribute('tabindex', '0');
+    g.setAttribute('class', 'bar-hit');
+    g.setAttribute('role', 'listitem');
+    g.setAttribute('aria-label', `${d.region}: ${formatNok(d.total_nok)}, ${d.orders} ordre`);
+
+    const hit = document.createElementNS(svgNS, 'rect');
+    hit.setAttribute('x', 0);
+    hit.setAttribute('y', rowY);
+    hit.setAttribute('width', chartWidth);
+    hit.setAttribute('height', rowHeight);
+    hit.setAttribute('fill', 'transparent');
+    g.appendChild(hit);
+
+    const catLabel = document.createElementNS(svgNS, 'text');
+    catLabel.setAttribute('x', marginLeft - 12);
+    catLabel.setAttribute('y', barY + barHeight / 2 + 4);
+    catLabel.setAttribute('text-anchor', 'end');
+    catLabel.setAttribute('class', 'cat-label');
+    catLabel.textContent = d.region;
+    g.appendChild(catLabel);
+
+    const bar = document.createElementNS(svgNS, 'path');
+    bar.setAttribute('d', roundedRightRectPath(marginLeft, barY, barW, barHeight, 4));
+    bar.setAttribute('fill', cssVar('--series-1'));
+    bar.setAttribute('class', 'bar-fill');
+    g.appendChild(bar);
+
+    const valLabel = document.createElementNS(svgNS, 'text');
+    valLabel.setAttribute('x', marginLeft + barW + 10);
+    valLabel.setAttribute('y', barY + barHeight / 2 + 4);
+    valLabel.setAttribute('class', 'val-label');
+    valLabel.textContent = formatNok(d.total_nok);
+    g.appendChild(valLabel);
+
+    g.addEventListener('pointermove', (e) => showTooltip(e, d));
+    g.addEventListener('pointerenter', (e) => showTooltip(e, d));
+    g.addEventListener('pointerleave', hideTooltip);
+    g.addEventListener('focus', (e) => showTooltip(e, d));
+    g.addEventListener('blur', hideTooltip);
+
+    svg.appendChild(g);
+  });
+
+  const container = document.getElementById('chart-view');
+  container.innerHTML = '';
+  container.setAttribute('role', 'list');
+  container.appendChild(svg);
+}
+
+function renderTable(data) {
+  const total = data.reduce((s, d) => s + d.total_nok, 0);
+  const table = document.createElement('table');
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Region</th>
+        <th class="num">Omsetning</th>
+        <th class="num">Ordre</th>
+        <th class="num">Andel</th>
+      </tr>
+    </thead>
+  `;
+  const tbody = document.createElement('tbody');
+  for (const d of data) {
+    const tr = document.createElement('tr');
+    const tdRegion = document.createElement('td');
+    tdRegion.className = 'region';
+    tdRegion.textContent = d.region;
+    const tdVal = document.createElement('td');
+    tdVal.className = 'num';
+    tdVal.textContent = formatNok(d.total_nok);
+    const tdOrders = document.createElement('td');
+    tdOrders.className = 'num';
+    tdOrders.textContent = d.orders.toLocaleString('nb-NO');
+    const tdShare = document.createElement('td');
+    tdShare.className = 'num';
+    tdShare.textContent = ((d.total_nok / total) * 100).toFixed(1) + ' %';
+    tr.appendChild(tdRegion);
+    tr.appendChild(tdVal);
+    tr.appendChild(tdOrders);
+    tr.appendChild(tdShare);
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  const container = document.getElementById('table-view');
+  container.innerHTML = '';
+  container.appendChild(table);
+}
+
+const viewToggle = document.getElementById('view-toggle');
+const chartView = document.getElementById('chart-view');
+const tableView = document.getElementById('table-view');
+let showingTable = false;
+viewToggle.addEventListener('click', () => {
+  showingTable = !showingTable;
+  chartView.classList.toggle('hidden', showingTable);
+  tableView.classList.toggle('hidden', !showingTable);
+  viewToggle.textContent = showingTable ? 'Vis som diagram' : 'Vis som tabell';
+});
+
+async function load() {
+  const res = await fetch('/api/sales-by-region');
+  const data = await res.json();
+  renderChart(data);
+  renderTable(data);
+  const top = data[0];
+  const total = data.reduce((s, d) => s + d.total_nok, 0);
+  document.getElementById('foot-note').textContent =
+    `${top.region} har høyest omsetning: ${formatNok(top.total_nok)} (${((top.total_nok / total) * 100).toFixed(0)} % av totalen).`;
+}
+load();
+</script>
+</body>
+</html>
